@@ -1,11 +1,13 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 #include <signal.h>
 
 #include "globals.h"
 
 #include "z80.h"
+#include "zxkeys.h"
 
 #define LINES_BEFORE_SCREEN 64
 #define LINES_AFTER_SCREEN 56
@@ -33,6 +35,9 @@ static unsigned flash_flip_flop, flash_frame_count;
 
 static uint32_t pixels[PIXELS_COUNT];
 static uint32_t surface[SURFACE_WIDTH * SURFACE_HEIGHT];
+
+static const uint8_t *autotype_keys;
+static unsigned autotype_on;
 
 static volatile sig_atomic_t running = 1;
 
@@ -131,6 +136,18 @@ static void render_line(unsigned line) {
     for (unsigned x = 0; x < BORDER_WIDTH; x++) *pp++ = bordercol;
 }
 
+static void autotype(void) {
+    uint8_t k = *autotype_keys++;
+    if (k == 0xFF) {
+        autotype_on = 0;
+        return;
+    }
+    memset(presentation_keys, 0, 40);
+    presentation_keys[ZXKEY_CAPS_SHIFT] = !!(k & ZXKEY_MOD_CAPS_SHIFT);
+    presentation_keys[ZXKEY_SYM_SHIFT] = !!(k & ZXKEY_MOD_SYM_SHIFT);
+    presentation_keys[k & 0x3F] = 1;
+}
+
 static void init_z80(void) {
     z80_init(&z80);
     z80.readb = readb;
@@ -163,6 +180,8 @@ static unsigned step(void) {
     static unsigned line = 0;
     static int vblank_assert_cdown = 0;
 
+    static unsigned frame_count = 0;
+
     unsigned c = z80_step(&z80);
     cycles += c;
     if (cycles >= disp_stage_cyc_goal) {
@@ -183,8 +202,16 @@ static unsigned step(void) {
                 flash_frame_count = 0;
                 flash_flip_flop ^= 1;
             }
+
+            frame_count++;
+            if (autotype_on) {
+                if (frame_count >= AUTOTYPE_FRAME_THRESHOLD && autotype_on
+                    && !(frame_count % AUTOTYPE_FRAMES_PER_KEY))
+                    autotype();
+            } else {
+                presentation_refresh_keys();
+            }
             presentation_blit(pixels);
-            presentation_refresh_keys();
 
             z80_assert_maskable_int(&z80, 0xffff);
             vblank_assert_cdown = 28;
@@ -202,6 +229,10 @@ static unsigned step(void) {
 }
 
 int main(int argc, char *argv[]) {
+
+    autotype_keys = zxprg_border_test;
+    autotype_on = 1;
+
     init_z80();
     load_rom();
     signal(SIGINT, handle_signal);
