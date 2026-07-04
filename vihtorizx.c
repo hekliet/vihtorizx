@@ -92,21 +92,28 @@ static void outport(uint16_t port, uint8_t v) {
         fprintf(stderr, "outport to odd port\n");
         return;
     }
-    uint8_t prev_border = border;
     border = v & 7;
     mic_ear_on = (v >> 3) & 3 != 1;
-    if (border != prev_border) {
-        uint32_t *p = pixels;
-        uint32_t c = palette[border];
-        for (unsigned i = 0; i < PIXELS_COUNT; i++) *p++ = c;
-    }
 }
 
 static void render_line(unsigned line) {
-    line -= LINES_BEFORE_SCREEN;
-    uint8_t *bp = bitmap_mem + (((line & 0xc0) | ((line & 7) << 3) | ((line >> 3) & 7)) << 5);
-    uint8_t *ap = attrib_mem + ((line >> 3) << 5);
-    uint32_t *pp = pixels + (BORDER_HEIGHT + line) * PIXELS_WIDTH + BORDER_WIDTH;
+    int pixels_line = line - LINES_BEFORE_SCREEN + BORDER_HEIGHT;
+
+    if (pixels_line < 0 || pixels_line >= SCREEN_HEIGHT + 2 * BORDER_HEIGHT)
+        return;
+    
+    uint32_t *pp = pixels + pixels_line * PIXELS_WIDTH;
+    uint32_t bordercol = palette[border];
+    
+    if (!(pixels_line >= BORDER_HEIGHT && pixels_line < BORDER_HEIGHT + SCREEN_HEIGHT)) {
+        for (unsigned x = 0; x < PIXELS_WIDTH; x++) *pp++ = bordercol;
+        return;
+    }
+    
+    unsigned screen_line = line - LINES_BEFORE_SCREEN;
+    uint8_t *bp = bitmap_mem + (((screen_line & 0xc0) | ((screen_line & 7) << 3) | ((screen_line >> 3) & 7)) << 5);
+    uint8_t *ap = attrib_mem + ((screen_line >> 3) << 5);
+    for (unsigned x = 0; x < BORDER_WIDTH; x++) *pp++ = bordercol;
     for (unsigned x = 0; x < SCREEN_WIDTH; x += 8) {
         uint8_t b = *bp++;
         uint8_t a = *ap++;
@@ -121,6 +128,7 @@ static void render_line(unsigned line) {
             b <<= 1;
         }
     }
+    for (unsigned x = 0; x < BORDER_WIDTH; x++) *pp++ = bordercol;
 }
 
 static void init_z80(void) {
@@ -168,8 +176,7 @@ static unsigned step(void) {
         line_cyc_mod -= CYCLES_PER_LINE;
         line = (line + 1) % LINES_PER_FRAME;
 
-        if (disp_stage == DISPLAY_STAGE_MIDDLE)
-            render_line(line);
+        render_line(line);
 
         if (line == 0) {
             if (++flash_frame_count == 16) {
