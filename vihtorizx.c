@@ -250,15 +250,17 @@ int main(int argc, char *argv[]) {
     while (running && !presentation_sentinel) {
         while (cycle_count < ZX_CYCLES_PER_FRAME_SHL10) cycle_count += step() << 10;
         cycle_count -= ZX_CYCLES_PER_FRAME_SHL10;
-        next_frame += next_frame_incr;
-
+        
         // TODO: Flush sample buffer using presentation_queue_audio
-
-        int64_t ahead = next_frame - presentation_perf_counter();
-        if (ahead > 0) {
-            ts.tv_nsec = ahead * 1000000000LL / perf_freq;
-            nanosleep(&ts, NULL);
-            while (presentation_perf_counter() < next_frame);
+        
+        if (!autotype_on) {
+            next_frame += next_frame_incr;
+            int64_t ahead = next_frame - presentation_perf_counter();
+            if (ahead > 0) {
+                ts.tv_nsec = ahead * 1000000000LL / perf_freq;
+                nanosleep(&ts, NULL);
+                while (presentation_perf_counter() < next_frame);
+            }
         }
     }
 
