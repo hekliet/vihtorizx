@@ -8,6 +8,7 @@
 
 #include "z80.h"
 #include "zxkeys.h"
+#include "snapshot.h"
 
 #define LINES_BEFORE_SCREEN 64
 #define LINES_AFTER_SCREEN 56
@@ -162,6 +163,20 @@ static void load_rom(void) {
     fclose(f);
 }
 
+static void load_file(const char *path) {
+    if (strstr(path, ".z80") == path + strlen(path) - 4) {
+        snapshot_message_t msg;
+        if (load_snapshot(&z80, path, memory, &msg))
+            return;
+        border = msg.border;
+        printf("border=%u\n", border);
+    }
+    else {
+        autotype_keys = zxprg_border_test;
+        autotype_on = 1;
+    }
+}
+
 static void handle_signal(int _) {
     running = 0;
 }
@@ -229,15 +244,12 @@ static unsigned step(void) {
 }
 
 int main(int argc, char *argv[]) {
-
-    autotype_keys = zxprg_border_test;
-    autotype_on = 1;
-
     init_z80();
     load_rom();
+    if (argc > 1) load_file(argv[1]);
+
     signal(SIGINT, handle_signal);
     signal(SIGTERM, handle_signal);
-
     pthread_t thread_id;
     pthread_create(&thread_id, NULL, presentation_start, NULL);
 

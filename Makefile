@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -O2
+CFLAGS = -g
 LDLIBS = -lSDL2
 
 SRCS = $(wildcard *.c)

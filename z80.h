@@ -1,3 +1,6 @@
+#ifndef __Z80_H
+#define __Z80_H
+
 #include <stdint.h>
 
 typedef union {uint16_t w; struct {uint8_t lo; uint8_t hi;};} reg16_t;
@@ -39,3 +42,5 @@ unsigned z80_step(z80_t *z80);
 void z80_trigger_nmi(z80_t *z80);
 void z80_assert_maskable_int(z80_t *z80, uint16_t bus_data);
 void z80_clear_maskable_int(z80_t *z80);
+
+#endif

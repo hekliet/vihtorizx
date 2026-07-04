@@ -12,3 +12,6 @@
 #define SCALE_FACTOR 3
 #define SURFACE_WIDTH (SCALE_FACTOR * PIXELS_WIDTH)
 #define SURFACE_HEIGHT (SCALE_FACTOR * PIXELS_HEIGHT)
+
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
